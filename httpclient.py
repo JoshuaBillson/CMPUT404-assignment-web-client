@@ -24,72 +24,119 @@ import re
 # you may use urllib to encode data appropriately
 import urllib.parse
 
-def help():
-    print("httpclient.py [GET/POST] [URL]\n")
 
 class HTTPResponse(object):
     def __init__(self, code=200, body=""):
         self.code = code
         self.body = body
 
+
 class HTTPClient(object):
-    #def get_host_port(self,url):
+    def get_host_port(self, url, port=80):
+        p = urllib.parse.urlparse(url if url[0:7] == "http://" else "http://" + url, scheme='http')
+        self.host = p.hostname
+        self.path = p.path if p.path else "/"
+        self.port = p.port if p.port else port
 
-    def connect(self, host, port):
+    def __init__(self):
+        self.host = None
+        self.port = None
+        self.action = None
+        self.socket = None
+        self.path = None
+
+    def connect(self, url, port=80):
+        self.get_host_port(url, port)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((host, port))
+        self.socket.connect((self.host, self.port))
         return None
 
-    def get_code(self, data):
-        return None
+    @staticmethod
+    def get_code(response):
+        return re.search("HTTP/1.\d (\d+) .+", response.split("\r\n")[0]).group(1)
 
-    def get_headers(self,data):
-        return None
+    @staticmethod
+    def get_body(response):
+        return response.split("\r\n\r\n")[1]
 
-    def get_body(self, data):
-        return None
-    
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
-        
+
     def close(self):
         self.socket.close()
 
     # read everything from the socket
-    def recvall(self, sock):
+    def recvall(self):
         buffer = bytearray()
         done = False
         while not done:
-            part = sock.recv(1024)
-            if (part):
-                buffer.extend(part)
-            else:
-                done = not part
+            part = self.socket.recv(1024)
+            buffer += part
+            done = part == b''
         return buffer.decode('utf-8')
 
-    def GET(self, url, args=None):
-        code = 500
-        body = ""
-        return HTTPResponse(code, body)
+    def GET(self, url, port=80, args=None):
+        # Open Connection
+        self.connect(url, port)
 
-    def POST(self, url, args=None):
-        code = 500
-        body = ""
-        return HTTPResponse(code, body)
+        # Create Request
+        lines = [f"GET {self.path} HTTP/1.1",
+                 f"Host: {self.host}",
+                 f"Connection: close",
+                 f"Accept: */*\r\n\r\n"
+                 ]
+        request = "\r\n".join(lines)
+
+        # Send Request
+        return self.send_request(request)
+
+    def POST(self, url, port=80, args=None):
+        # Open Connection
+        self.connect(url, port)
+
+        # Create Body
+        body = [f"{key}={value}" for key, value in args.items()] if args else []
+        body = "&".join(body)
+
+        # Create Request
+        lines = [f"POST {self.path} HTTP/1.1",
+                 f"Host: {self.host}",
+                 f"Content-Type: application/x-www-form-urlencoded",
+                 f"Connection: close",
+                 f"Accept: */*",
+                 f"Content-Length: {len(body.encode('utf-8'))}",
+                 f"\r\n{body}"
+                 ]
+        request = "\r\n".join(lines)
+
+        # Send Request
+        return self.send_request(request)
+
+    def send_request(self, request):
+        self.sendall(request)
+        response = self.recvall()
+        self.close()
+        return self.parse_response(response)
+
+    def parse_response(self, response):
+        code = self.get_code(response)
+        body = self.get_body(response)
+        return HTTPResponse(code=int(code), body=body)
 
     def command(self, url, command="GET", args=None):
-        if (command == "POST"):
-            return self.POST( url, args )
+        if command == "POST":
+            return self.POST(url, args=args)
         else:
-            return self.GET( url, args )
-    
+            return self.GET(url, args=args)
+
+
 if __name__ == "__main__":
     client = HTTPClient()
     command = "GET"
-    if (len(sys.argv) <= 1):
-        help()
+    if len(sys.argv) <= 1:
+        print("httpclient.py [GET/POST] [URL]\n")
         sys.exit(1)
-    elif (len(sys.argv) == 3):
-        print(client.command( sys.argv[2], sys.argv[1] ))
+    elif len(sys.argv) == 3:
+        print(client.command(sys.argv[2], sys.argv[1]).body)
     else:
-        print(client.command( sys.argv[1] ))
+        print(client.command(sys.argv[1]).body)

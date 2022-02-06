@@ -1,5 +1,6 @@
 # this docker file describes the test environment for the assignment
 FROM ubuntu:18.10
+RUN sed -i -e 's/archive.ubuntu.com\|security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
 RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y python3 python3-dev python3-setuptools python3-pip curl wget git vim 
