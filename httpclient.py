@@ -32,18 +32,19 @@ class HTTPResponse(object):
 
 
 class HTTPClient(object):
-    def get_host_port(self, url, port=80):
-        p = urllib.parse.urlparse(url if url[0:7] == "http://" else "http://" + url, scheme='http')
-        self.host = p.hostname
-        self.path = p.path if p.path else "/"
-        self.port = p.port if p.port else port
-
     def __init__(self):
         self.host = None
         self.port = None
         self.action = None
         self.socket = None
         self.path = None
+        self.headers = None
+
+    def get_host_port(self, url, port=80):
+        p = urllib.parse.urlparse(url if url[0:7] == "http://" else "http://" + url, scheme='http')
+        self.host = p.hostname
+        self.path = p.path if p.path else "/"
+        self.port = p.port if p.port else port
 
     def connect(self, url, port=80):
         self.get_host_port(url, port)
@@ -73,7 +74,10 @@ class HTTPClient(object):
             part = self.socket.recv(1024)
             buffer += part
             done = part == b''
-        return buffer.decode('utf-8')
+        try:
+            return buffer.decode('utf-8')
+        except UnicodeDecodeError:
+            return buffer.decode('ISO-8859-1')
 
     def GET(self, url, port=80, args=None):
         # Open Connection
