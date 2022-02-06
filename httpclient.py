@@ -130,8 +130,7 @@ class HTTPClient(object):
     def command(self, url, command="GET", args=None):
         if command == "POST":
             return self.POST(url, args=args)
-        else:
-            return self.GET(url, args=args)
+        return self.GET(url, args=args)
 
 
 if __name__ == "__main__":
