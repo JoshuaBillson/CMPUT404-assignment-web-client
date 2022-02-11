@@ -30,6 +30,9 @@ class HTTPResponse(object):
         self.code = code
         self.body = body
 
+    def __str__(self):
+        return self.body
+
 
 class HTTPClient(object):
     def __init__(self):
@@ -83,9 +86,13 @@ class HTTPClient(object):
         # Open Connection
         self.connect(url, port)
 
+        # Create Query String
+        query_string = ("?" + "&".join([f"{key}={value}" for key, value in args.items()])) if args else ""
+
         # Create Request
-        lines = [f"GET {self.path} HTTP/1.1",
+        lines = [f"GET {self.path + query_string} HTTP/1.1",
                  f"Host: {self.host}",
+                 f"User-Agent: Python",
                  f"Connection: close",
                  f"Accept: */*\r\n\r\n"
                  ]
@@ -105,6 +112,7 @@ class HTTPClient(object):
         # Create Request
         lines = [f"POST {self.path} HTTP/1.1",
                  f"Host: {self.host}",
+                 f"User-Agent: Python",
                  f"Content-Type: application/x-www-form-urlencoded",
                  f"Connection: close",
                  f"Accept: */*",
@@ -140,6 +148,13 @@ if __name__ == "__main__":
         print("httpclient.py [GET/POST] [URL]\n")
         sys.exit(1)
     elif len(sys.argv) == 3:
-        print(client.command(sys.argv[2], sys.argv[1]).body)
+        print(client.command(sys.argv[2], sys.argv[1]))
+    elif len(sys.argv) > 3:
+        args = dict()
+        for arg in sys.argv[3:]:
+            k, v = arg.split("=")
+            args[k] = v
+        print(client.command(sys.argv[2], sys.argv[1], args=args))
+
     else:
-        print(client.command(sys.argv[1]).body)
+        print(client.command(sys.argv[1]))
